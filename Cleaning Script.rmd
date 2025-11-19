@@ -1,0 +1,18 @@
+---
+title: "R Notebook"
+output: html_notebook
+---
+
+```{r}
+
+library(readr)
+library(dplyr)
+
+listings_df <- read_csv("listings.csv.gz")
+
+View(listings_df)
+glimpse(listings_df)
+
+```
+
+
