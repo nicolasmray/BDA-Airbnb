@@ -1,5 +1,5 @@
 ---
-title: "R Notebook"
+title: "Cleaning Script"
 output: html_notebook
 ---
 
@@ -7,12 +7,76 @@ output: html_notebook
 
 library(readr)
 library(dplyr)
+library(tidyr)
 
 listings_df <- read_csv("listings.csv.gz")
 
 View(listings_df)
-glimpse(listings_df)
+
+clean_listing_df <- listings_df %>%
+  select(
+    id,
+    name,
+    description,
+    host_id,
+    host_since,
+    #host_location,
+    host_is_superhost,           
+    #host_neighbourhood,
+    #neighbourhood,
+    neighbourhood_cleansed,
+    latitude,
+    longitude,
+    property_type,
+    room_type,
+    accommodates,                
+    #bathrooms,
+    bathrooms_text,
+    bedrooms,
+    beds,
+    amenities,
+    price,
+    minimum_nights,
+    maximum_nights,
+    review_scores_rating,
+    review_scores_accuracy,
+    review_scores_location,
+    review_scores_value
+  )
+
+
+View(clean_listing_df)
+
+sapply(clean_listing_df, function(x) mean(is.na(x)) * 100)
+
+glimpse(clean_listing_df)
 
 ```
 
 
+```{r}
+clean_listing_df <- clean_listing_df %>%
+  mutate(
+    bedrooms = if_else(is.na(bedrooms), 1, bedrooms)
+  ) %>%
+  drop_na(price, bathrooms_text, beds)
+
+sapply(clean_listing_df, function(x) mean(is.na(x)) * 100)
+
+glimpse(clean_listing_df)
+```
+
+```{r}
+clean_listing_df %>%
+  count(property_type) %>%
+  mutate(percent = 100 * n / sum(n)) %>%
+  arrange(desc(percent))
+
+```
+```{r}
+clean_listing_df %>%
+  count(room_type) %>%
+  mutate(percent = 100 * n / sum(n)) %>%
+  arrange(desc(percent))
+
+```
