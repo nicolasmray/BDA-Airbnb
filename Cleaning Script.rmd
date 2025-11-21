@@ -19,9 +19,9 @@ clean_listing_df <- listings_df %>%
     name,
     description,
     host_id,
-    host_since,
+    #host_since,
     #host_location,
-    host_is_superhost,           
+    #host_is_superhost,           
     #host_neighbourhood,
     #neighbourhood,
     neighbourhood_cleansed,
@@ -38,10 +38,10 @@ clean_listing_df <- listings_df %>%
     price,
     minimum_nights,
     maximum_nights,
-    review_scores_rating,
-    review_scores_accuracy,
-    review_scores_location,
-    review_scores_value
+    #review_scores_rating,
+    #review_scores_accuracy,
+    #review_scores_location,
+    #review_scores_value
   )
 
 
@@ -80,3 +80,117 @@ clean_listing_df %>%
   arrange(desc(percent))
 
 ```
+```{r}
+clean_listing_df %>%
+  count(bathrooms_text) %>%
+  mutate(percent = 100 * n / sum(n)) %>%
+  arrange(desc(percent))
+
+```
+
+
+```{r}
+toilet_listing_df <- clean_listing_df %>%
+  
+mutate(
+    bathroom_count = NA_real_, 
+    bathroom_type = NA_character_
+  ) %>%
+  
+  select(
+    id,
+    name,
+    description,
+    host_id,
+    #host_since,
+    #host_location,
+    #host_is_superhost,           
+    #host_neighbourhood,
+    #neighbourhood,
+    neighbourhood_cleansed,
+    latitude,
+    longitude,
+    property_type,
+    room_type,
+    accommodates,                
+    #bathrooms,
+    bathrooms_text,
+    bathroom_count,     #Created by me
+    bathroom_type,      #Created by me
+    bedrooms,
+    beds,
+    amenities,
+    price,
+    minimum_nights,
+    maximum_nights,
+    #review_scores_rating,
+    #review_scores_accuracy,
+    #review_scores_location,
+    #review_scores_value
+  )
+
+# Create the mapping table
+bathroom_map_df <- data.frame(
+  bathrooms_text = c(
+    "1 bath", "2 baths", "1.5 baths", "1 shared bath", "1 private bath", 
+    "2.5 baths", "Half-bath", "2 shared baths", "1.5 shared baths", 
+    "Shared half-bath", "0 baths", "3 baths", "0 shared baths", 
+    "Private half-bath", "4 shared baths", "3.5 baths", "4 baths", 
+    "3 shared baths", "5 baths", "2.5 shared baths", "8 baths"
+  ),
+  bathroom_count_map = c(
+    1, 2, 1.5, 1, 1, 
+    2.5, 0.5, 2, 1.5, 
+    0.5, 0.5, 3, 0.5, 
+    0.5, 4, 3.5, 4, 
+    3, 5, 2.5, 8
+  ),
+  bathroom_type_map = c(
+    "private", "private", "private", "shared", "private", 
+    "private", "private", "shared", "shared", 
+    "shared", "private", "private", "shared", 
+    "private", "shared", "private", "private", 
+    "shared", "private", "shared", "private"
+  )
+)
+
+
+toilet_listing_df <- toilet_listing_df %>%
+  
+  # Perform the left join based on the bathrooms_text column
+  left_join(
+    bathroom_map_df, 
+    by = "bathrooms_text"
+  ) %>%
+  
+  # Use the values from the mapping table to populate the original columns
+  mutate(
+    bathroom_count = bathroom_count_map,
+    bathroom_type = bathroom_type_map
+  ) %>%
+  
+  # Remove the temporary columns added by the join to keep the dataframe clean
+  select(
+    -bathrooms_text,
+    -bathroom_count_map, 
+    -bathroom_type_map
+  )
+
+View(toilet_listing_df)
+```
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
