@@ -1,0 +1,235 @@
+---
+title: "R Notebook"
+output: html_notebook
+---
+0. Load libraries:
+```{r}
+library(tidyverse)
+library(dplyr)
+library(stringr)
+```
+
+1. Import and initial exploration:
+
+Assign the dataset to a dataframe object:
+```{r}
+df_listings <- data.frame(listings)
+```
+
+Overview of the dataframe structure: check column names and types:
+```{r}
+str(df_listings)
+```
+
+2. Identify and remove columns with too many missing values or irrelevant:
+- Remove columns that are not relevant for our study.
+- Remove columns with many missing values as they provide little useful information. Since the dataframe has 22684 rows, we considered that the columns that have above 4000 missing values, which is more than 18% of missing values, and are not necessary for our study, should be removed.
+- Columns with too many missing values but necessary for analysis (e.g., price) will be handled later.
+Check NA values for specific columns:
+#Let me know what you think about this. I thought we could remove these columns (except price) that we decided to keep initially, since I saw they have too many missing values and I don't think they are necessary for our study. Instead of removing them we could change the missing values to "None" so there are no NAs, let me know what you think:)
+```{r}
+sum(is.na(df_listings$host_neighbourhood)) 
+sum(is.na(df_listings$bathrooms)) #There is another column named bathrooms_text that does not have missing values.
+sum(is.na(df_listings$host_location))
+sum(is.na(df_listings$beds))
+sum(is.na(df_listings$price))
+```
+Remove irrelevant columns 
+```{r}
+df_listings <- data.frame(listings)
+
+df_listings <- df_listings %>% 
+  select(
+    id,
+    name,
+    description,
+    neighborhood_overview,
+    host_since,
+    host_about,
+    host_response_time,
+    host_response_rate,
+    host_is_superhost,
+    host_neighbourhood,
+    host_listings_count,
+    host_total_listings_count,
+    host_verifications,
+    host_has_profile_pic,
+    host_identity_verified,
+    neighbourhood_cleansed,
+    latitude,
+    longitude,
+    property_type,
+    room_type,
+    accommodates,
+    bathrooms,
+    bathrooms_text,
+    bedrooms,
+    beds,
+    amenities,
+    price,
+    minimum_nights,
+    maximum_nights,
+    instant_bookable
+  )
+```
+
+3. Convert relevant columns to factors
+Check the types of the remaining columns to decide any conversions:
+```{r}
+str(df_listings)
+```
+
+Convert character columns that represent categories to factors to ensure proper handling of categorical data in analysis and modeling.
+```{r}
+df_listings <- df_listings %>% 
+  mutate(
+    neighbourhood_cleansed = as.factor(neighbourhood_cleansed),
+    property_type = as.factor(property_type),
+    room_type = as.factor(room_type)
+  )
+```
+
+Confirm data types after conversion:
+```{r}
+str(df_listings)
+```
+
+4. Create numeric bathroom variable:
+Extract numeric values from the 'bathrooms_text' column to create a new numeric column (e.g., "1.5 baths", "2 baths" -> 1.5, 2).
+Rows without numeric values will result in NA, which will be handled later.
+```{r}
+df_listings <- df_listings %>%
+  mutate(bathrooms_num = as.numeric(str_extract(bathrooms_text, "\\d+\\.?\\d*"))
+  )
+```
+Check if bathrooms_num has missing values:
+```{r}
+sum(is.na(df_listings$bathrooms_num))
+```
+Check if bathrooms_text has missing values:
+```{r}
+sum(is.na(df_listings$bathrooms_text))
+```
+Since bathrooms_text didn't have missing values but bathrooms_num has, identify which text values became NA:
+```{r}
+df_listings %>%
+  filter(!is.na(bathrooms_text) & is.na(bathrooms_num)) %>%
+  select(bathrooms_text, bathrooms_num)
+```
+We can see that the missing values correspond to "half-bath", "private half-bath" or "shared half-bath". For simplicity, we will convert the missing values to numeric type 0.5 in the bathrooms_numeric column:
+```{r}
+df_listings <- df_listings %>%
+  mutate(bathrooms_num = if_else(is.na(bathrooms_num), 0.5, bathrooms_num)
+  )
+```
+Remove bathrooms_text column since we don't need it anymore:
+```{r}
+df_listings <- df_listings %>% select(-bathrooms_text)
+```
+Convert price string into numeric
+```{r}
+df_listings <- df_listings %>%
+  mutate(
+    price = str_replace_all(price, "[$,]", ""),
+    price = as.numeric(price)
+  )
+```
+
+Remove rows where price is NA (target variable cannot be missing)
+```{r}
+df_listings <- df_listings %>%
+  filter(!is.na(price))
+```
+
+6. Handle remaining missing values:
+Check if any NA remains:
+```{r}
+any(is.na(df_listings))
+```
+Remove rows with missing values in key columns needed for analysis:
+```{r}
+df_listings <- df_listings %>%
+  drop_na(
+    neighbourhood_cleansed,
+    property_type,
+    room_type,
+    accommodates,
+    bedrooms,
+    beds,
+    bathrooms_num,
+    minimum_nights,
+    maximum_nights
+  )
+```
+
+Convert host-related logical variables into binary indicators and add missingness flags to preserve information about incomplete listings
+```{r}
+df_listings <- df_listings %>%
+  mutate(
+    has_profile_pic = ifelse(host_has_profile_pic == TRUE, 1, 0),
+    has_profile_pic_missing = ifelse(is.na(host_has_profile_pic), 1, 0),
+
+    is_superhost = ifelse(host_is_superhost == TRUE, 1, 0),
+    is_superhost_missing = ifelse(is.na(host_is_superhost), 1, 0),
+
+    is_identity_verified = ifelse(host_identity_verified == TRUE, 1, 0),
+    identity_verified_missing = ifelse(is.na(host_identity_verified), 1, 0)
+  )
+```
+
+Remove original logical host variables after encoding them into numeric predictors
+```{r}
+df_listings <- df_listings %>% 
+  select(-host_has_profile_pic, -host_is_superhost, -host_identity_verified)
+```
+
+Convert empty strings in text columns into proper missing values
+```{r}
+df_listings <- df_listings %>%
+  mutate(across(where(is.character), ~na_if(.x, "")))
+```
+
+Remove remaining listings with missing numeric predictor values
+```{r}
+df_listings <- df_listings %>%
+  drop_na(bathrooms_num, latitude, longitude)
+```
+
+Convert selected categorical predictors into factor variables
+```{r}
+df_listings <- df_listings %>%
+  mutate(
+    room_type = as.factor(room_type),
+    neighbourhood_cleansed = as.factor(neighbourhood_cleansed),
+    property_type = as.factor(property_type),
+    instant_bookable = as.factor(instant_bookable)
+  )
+```
+
+Convert empty strings in all character columns to proper missing values
+```{r}
+df_listings <- df_listings %>%
+  mutate(
+    across(
+      .cols = where(is.character),
+      .fns  = ~ na_if(.x, "")
+    )
+  )
+```
+
+Remove remaining listings with missing values in key numeric predictor variables
+```{r}
+df_listings <- df_listings %>%
+  drop_na(
+    bathrooms_num,
+    latitude,
+    longitude
+  )
+```
+Check set up 
+```{r}
+summary(df_listings)
+any(is.na(df_listings$bathrooms_num))
+any(is.na(df_listings$latitude))
+any(is.na(df_listings$longitude))
+```
